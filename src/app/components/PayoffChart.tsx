@@ -1,7 +1,22 @@
+/*
+ * PayoffChart.tsx – polished payoff graph with annotation plugin
+ * -------------------------------------------------------------
+ * - Gradient fill (green for gains, red for losses)
+ * - Vertical markers for break-even, current price, and target
+ * - Works with Chart.js v4 + chartjs-plugin-annotation v2
+ * - Strict TypeScript typings (no `// @ts-ignore` needed)
+ *
+ *  → Install deps:
+ *      npm i chart.js@^4 react-chartjs-2@^6 chartjs-plugin-annotation@^2
+ */
+
 'use client';
-import React from 'react';
-import { Box } from '@mui/material';
-import { Line } from 'react-chartjs-2';
+
+// Augment Chart.js types before importing anything else
+/// <reference types="chartjs-plugin-annotation" />
+
+import React, { useMemo, useRef } from 'react';
+import { Box, useTheme } from '@mui/material';
 import {
   Chart as ChartJS,
   LineElement,
@@ -11,174 +26,202 @@ import {
   Tooltip,
   Legend,
   Filler,
+  ChartData,
+  ChartOptions,
 } from 'chart.js';
+import annotationPlugin, {
+  AnnotationOptions,
+  AnnotationPluginOptions,
+} from 'chartjs-plugin-annotation';
+import { Line } from 'react-chartjs-2';
 
-ChartJS.register(LineElement, CategoryScale, LinearScale, PointElement, Tooltip, Legend, Filler);
+ChartJS.register(
+  LineElement,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  Tooltip,
+  Legend,
+  Filler,
+  annotationPlugin
+);
 
-interface PayoffPoint {
-  price: number;
-  profit: number;
+/* ------------------------------------------------------------------ */
+/* ------------------------  Types  --------------------------------- */
+/* ------------------------------------------------------------------ */
+interface PayoffPoint { price: number; profit: number }
+interface Strategy {
+  payoffPoints?: PayoffPoint[];
+  breakEven?: number;
+  requiredCapital?: number;
 }
-
+interface Quote { price: number }
 interface PayoffChartProps {
-  strategy: {
-    payoffPoints?: PayoffPoint[];
-    breakEven?: number;
-    requiredCapital?: number;
-  };
-  quote: { price: number };
+  strategy: Strategy;
+  quote: Quote;
   targetPrice?: number;
+  height?: number; // default 300
 }
 
-export default function PayoffChart({ strategy, quote, targetPrice }: PayoffChartProps) {
-  // Placeholder data if not present
-  const payoffPoints: PayoffPoint[] = strategy?.payoffPoints || [
-    { price: 170, profit: 0 },
-    { price: 200, profit: 0 },
-    { price: 206.86, profit: 0 },
-    { price: 210, profit: 200 },
-    { price: 215, profit: 350 },
-  ];
-  const breakEven = strategy?.breakEven ?? 206.86;
-  const currentPrice = quote?.price ?? 202;
-  const minPrice = Math.min(...payoffPoints.map((p: PayoffPoint) => p.price));
-  const maxPrice = Math.max(...payoffPoints.map((p: PayoffPoint) => p.price));
-  const minProfit = Math.min(...payoffPoints.map((p: PayoffPoint) => p.profit));
-  const maxProfit = Math.max(...payoffPoints.map((p: PayoffPoint) => p.profit));
-  // Y axis min: clamp for readability
-  const requiredCapital = strategy?.requiredCapital ?? 0;
-  const clampMin = Math.max(-5000, -2 * Math.abs(requiredCapital || 2500));
-  const yMin = Math.max(minProfit, clampMin);
+/* ------------------------------------------------------------------ */
+/* ------------------------  Component  ------------------------------ */
+/* ------------------------------------------------------------------ */
+export default function PayoffChart({
+  strategy,
+  quote,
+  targetPrice,
+  height = 300,
+}: PayoffChartProps) {
+  const theme            = useTheme();
+  const payoffPoints     = strategy.payoffPoints?.length
+    ? [...strategy.payoffPoints].sort((a, b) => a.price - b.price)
+    : [
+        { price: 170, profit: 0 },
+        { price: 200, profit: 0 },
+        { price: 206.86, profit: 0 },
+        { price: 210, profit: 200 },
+        { price: 215, profit: 350 },
+      ];
+  const breakEven        = strategy.breakEven ?? 206.86;
+  const currentPrice     = quote.price ?? 202;
+  const requiredCapital  = strategy.requiredCapital ?? 0;
 
-  // Improved x-axis: include all relevant points with margin, but do not force current price to center
-  const xRelevant = [minPrice, maxPrice, breakEven, currentPrice];
-  if (targetPrice) xRelevant.push(targetPrice);
-  const xMinRaw = Math.min(...xRelevant);
-  const xMaxRaw = Math.max(...xRelevant);
-  const xRange = xMaxRaw - xMinRaw;
-  const xMargin = xRange * 0.1 + 1; // 10% or at least $1
-  const xMin = xMinRaw - xMargin;
-  const xMax = xMaxRaw + xMargin;
+  /* Domain ----------------------------------------------------------------- */
+  const xs               = payoffPoints.map(p => p.price);
+  const ys               = payoffPoints.map(p => p.profit);
+  const xMinRaw          = Math.min(...xs, breakEven, currentPrice, targetPrice ?? xs[0]);
+  const xMaxRaw          = Math.max(...xs, breakEven, currentPrice, targetPrice ?? xs[xs.length-1]);
+  const xPad             = (xMaxRaw - xMinRaw) * 0.08 + 1;
+  const domainX          = { min: xMinRaw - xPad, max: xMaxRaw + xPad };
 
-  // Helper to get profit at a given price (linear interpolation)
-  function getProfitAt(price: number): number {
-    if (!payoffPoints.length) return 0;
-    for (let i = 1; i < payoffPoints.length; i++) {
-      const p0 = payoffPoints[i - 1];
-      const p1 = payoffPoints[i];
-      if ((p0.price <= price && price <= p1.price) || (p1.price <= price && price <= p0.price)) {
-        // Linear interpolation
-        const t = (price - p0.price) / (p1.price - p0.price);
-        return p0.profit + t * (p1.profit - p0.profit);
-      }
-    }
-    // If out of bounds, clamp to nearest
-    if (price < payoffPoints[0].price) return payoffPoints[0].profit;
-    if (price > payoffPoints[payoffPoints.length - 1].price) return payoffPoints[payoffPoints.length - 1].profit;
-    return 0;
-  }
+  const yMinRaw          = Math.min(...ys, -2 * Math.abs(requiredCapital || 2500));
+  const yMaxRaw          = Math.max(...ys);
+  const domainY          = { min: yMinRaw, max: yMaxRaw + Math.abs(yMaxRaw) * 0.1 + 10 };
 
-  const profitAtBreakEven = getProfitAt(breakEven);
-  const profitAtCurrent = getProfitAt(currentPrice);
-  const profitAtTarget = targetPrice ? getProfitAt(targetPrice) : 0;
-  const yMaxRaw = Math.max(maxProfit, profitAtBreakEven, profitAtCurrent, profitAtTarget);
-  const yMax = yMaxRaw + Math.abs(yMaxRaw) * 0.1 + 10; // 10% margin + $10 buffer
+  /* Helpers ---------------------------------------------------------------- */
+  const fmt = (n: number) => n.toLocaleString(undefined, {
+    style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
 
-  // Convert all data to {x, y} for linear x axis
-  const payoffData = payoffPoints.map((p: PayoffPoint) => ({ x: Number(p.price.toFixed(2)), y: Number(p.profit.toFixed(2)) }));
+  /* Gradient Fill ---------------------------------------------------------- */
+  const chartRef = useRef<any>(null);
+  const gradient = useMemo(() => {
+    const ctx = chartRef.current?.ctx;
+    if (!ctx) return undefined;
+    const grad = ctx.createLinearGradient(0, 0, 0, ctx.canvas.height);
+    grad.addColorStop(0,   theme.palette.success.light + 'B3'); // 70 %
+    grad.addColorStop(0.5, theme.palette.success.light + '55'); // 33 %
+    grad.addColorStop(0.5, theme.palette.error.light   + '55');
+    grad.addColorStop(1,   theme.palette.error.light   + 'B3');
+    return grad;
+  }, [theme]);
 
-  const data = {
+  /* Dataset ---------------------------------------------------------------- */
+  const data: ChartData<'line'> = {
+    labels: xs,
     datasets: [
       {
         label: 'Payoff',
-        data: payoffData,
-        fill: 'origin',
-        borderColor: '#4caf50',
+        data: payoffPoints.map(p => ({ x: p.price, y: p.profit })),
+        borderColor: theme.palette.success.main,
+        borderWidth: 2,
         pointRadius: 0,
-        tension: 0.1,
-        segment: {
-          backgroundColor: (ctx: { p0: { parsed: { y: number } } }) => ctx.p0.parsed.y < 0 ? 'rgba(244,67,54,0.3)' : 'rgba(76,175,80,0.3)',
-          borderColor: (ctx: { p0: { parsed: { y: number } } }) => ctx.p0.parsed.y < 0 ? '#f44336' : '#4caf50',
+        tension: 0.15,
+        fill: {
+          target: 'origin',
+          above: gradient ?? theme.palette.success.light,
+          below: gradient ?? theme.palette.error.light,
         },
-      },
-      // Break-even vertical line
-      {
-        label: 'Break Even',
-        data: [
-          { x: Number(breakEven.toFixed(2)), y: Number(minProfit.toFixed(2)) },
-          { x: Number(breakEven.toFixed(2)), y: Number(maxProfit.toFixed(2)) },
-        ],
-        borderColor: '#2196f3',
-        borderWidth: 2,
-        pointRadius: 0,
-        type: 'line' as const,
-        fill: false,
-        order: 1,
-        showLine: true,
-      },
-      // Current price line
-      {
-        label: 'Current Price',
-        data: [
-          { x: Number(currentPrice.toFixed(2)), y: Number(minProfit.toFixed(2)) },
-          { x: Number(currentPrice.toFixed(2)), y: Number(maxProfit.toFixed(2)) },
-        ],
-        borderColor: '#fff',
-        borderWidth: 2,
-        pointRadius: 0,
-        type: 'line' as const,
-        fill: false,
-        order: 2,
-        borderDash: [6, 4],
-        showLine: true,
-      },
-      // Target price line
-      {
-        label: 'Target Price',
-        data: [
-          { x: Number(targetPrice?.toFixed?.(2) ?? targetPrice), y: Number(minProfit.toFixed(2)) },
-          { x: Number(targetPrice?.toFixed?.(2) ?? targetPrice), y: Number(maxProfit.toFixed(2)) },
-        ],
-        borderColor: '#ff9800',
-        borderWidth: 2,
-        pointRadius: 0,
-        type: 'line' as const,
-        fill: false,
-        order: 3,
-        showLine: true,
+        segment: {
+          borderColor: ctx => ctx.p0.parsed.y < 0 ? theme.palette.error.main : theme.palette.success.main,
+        },
       },
     ],
   };
 
-  const options = {
+  /* Options ---------------------------------------------------------------- */
+  const options: ChartOptions<'line'> & { plugins: { annotation: AnnotationPluginOptions } } = {
     responsive: true,
     maintainAspectRatio: false,
+    interaction: { mode: 'nearest', intersect: false },
     plugins: {
+      tooltip: {
+        callbacks: {
+          label: ctx => `${fmt(ctx.parsed.y)} at $${ctx.parsed.x.toFixed(2)}`,
+        },
+      },
       legend: { display: false },
-      tooltip: { enabled: true },
+      annotation: {
+        annotations: {
+          breakEven: {
+            type: 'line',
+            xMin: breakEven,
+            xMax: breakEven,
+            borderColor: theme.palette.info.main,
+            borderWidth: 2,
+            label: {
+              content: 'Break-even',
+              enabled: true,
+              position: 'start',
+              backgroundColor: theme.palette.info.main,
+              color: theme.palette.common.white,
+            },
+          } as AnnotationOptions,
+          current: {
+            type: 'line',
+            xMin: currentPrice,
+            xMax: currentPrice,
+            borderColor: theme.palette.text.primary,
+            borderWidth: 2,
+            borderDash: [6, 4],
+            label: {
+              content: 'Now',
+              enabled: true,
+              position: 'start',
+              backgroundColor: theme.palette.text.primary,
+              color: theme.palette.background.default,
+            },
+          } as AnnotationOptions,
+          ...(targetPrice ? {
+            target: {
+              type: 'line',
+              xMin: targetPrice,
+              xMax: targetPrice,
+              borderColor: theme.palette.warning.main,
+              borderWidth: 2,
+              label: {
+                content: 'Target',
+                enabled: true,
+                position: 'start',
+                backgroundColor: theme.palette.warning.main,
+                color: theme.palette.common.white,
+              },
+            } as AnnotationOptions,
+          } : {}),
+        },
+      },
     },
     scales: {
       x: {
-        type: 'linear' as const,
-        title: { display: true, text: 'Stock Price' },
-        grid: { color: 'rgba(255,255,255,0.1)' },
-        ticks: { color: '#fff' },
-        min: xMin,
-        max: xMax,
+        type: 'linear',
+        min: domainX.min,
+        max: domainX.max,
+        title: { display: true, text: 'Underlying Price ($)' },
+        grid: { color: theme.palette.divider },
+        ticks: { color: theme.palette.text.secondary },
       },
       y: {
-        title: { display: true, text: 'Return ($)' },
-        grid: { color: 'rgba(255,255,255,0.1)' },
-        ticks: { color: '#fff' },
-        min: yMin,
-        max: yMax,
+        min: domainY.min,
+        max: domainY.max,
+        title: { display: true, text: 'P/L (USD)' },
+        grid: { color: theme.palette.divider },
+        ticks: { color: theme.palette.text.secondary, callback: v => fmt(Number(v)) },
       },
     },
   };
 
   return (
-    <Box sx={{ width: '100%', height: 260 }}>
-      <Line data={data} options={options} />
+    <Box sx={{ width: '100%', height }}>
+      <Line ref={chartRef} data={data} options={options} />
     </Box>
   );
-} 
+}

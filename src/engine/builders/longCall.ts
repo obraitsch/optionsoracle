@@ -18,9 +18,10 @@ export function buildLongCall(user: UserInputs, options: Contract[], sliderValue
       if (hasBudget && requiredCapital > userBudget) continue;
       const maxLoss = requiredCapital;
       // --- OptionStrat-style capped profit ---
+      const K_c = 1.5 //Cap tuning constant for target up
       const T = user.expiration ? (typeof user.expiration === 'number' ? user.expiration : (typeof user.expiration === 'string' ? (Math.max((new Date(user.expiration).getTime() - Date.now()) / (365 * 24 * 60 * 60 * 1000), 1/365)) : 0)) : 0.1;
       const sigma = typeof contract.iv === 'number' ? contract.iv : (typeof user.quote?.iv === 'number' ? user.quote.iv : 0.25);
-      const targetMove = S > 0 ? sigma * Math.sqrt(T) * S * 1.5 : 0;
+      const targetMove = S > 0 ? sigma * Math.sqrt(T) * S * K_c : 0;
       const targetPrice = S > 0 ? S + targetMove : 0;
       const strikePrice = typeof contract.strike_price === 'number' ? contract.strike_price : 0;
       const breakEven = strikePrice + premium;

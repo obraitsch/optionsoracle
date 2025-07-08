@@ -161,7 +161,7 @@ export function scoreStrategies<T extends StrategyResult>(
   // Compute raw metrics
   // Log-scale ROR for better slider sensitivity
   const ror = candidates.map(s => Math.log10(Math.max(1, s.returnOnRisk)));
-  const pop = candidates.map(s => Math.max(0, s.chance));
+  const pop = candidates.map(s => Math.log10(Math.max(1, s.chance)));
   const capEff = candidates.map(s => s.requiredCapital > 0 ? Math.max(0, s.profit / s.requiredCapital) : 0);
   const liq = candidates.map(s => computeLiquidityScore(s.contracts));
   // Normalize
@@ -169,8 +169,22 @@ export function scoreStrategies<T extends StrategyResult>(
   const popNorm = normalizeArray(pop);
   const capEffNorm = normalizeArray(capEff);
   const liqNorm = normalizeArray(liq);
+  const widthArr = candidates.map(s => {
+    if (s.contracts.length >= 2) {
+      const [leg1, leg2] = s.contracts;
+      return Math.abs(leg2.strike_price - leg1.strike_price); // $ width
+    }
+    return 0; // single-leg → treat width as 0
+  });
+  const widthNorm = normalizeArray(widthArr.map(w => {
+  // Ideal width 5–7 → score ~1, narrow 2.5 or wide 10 → score ~0
+  if (w <= 2.5) return 0;
+  if (w >= 10)  return 0;
+  return 1 - Math.abs(w - 6) / 3.5; // triangle peak at 6
+  }));
+
   // Slider weights
-  const wReward = sliderValue / 100;
+  const wReward = Math.pow(sliderValue / 100, 1);
   const wRisk = 1 - wReward;
   // Score
   const scored = candidates.map((s, i) => ({
@@ -179,7 +193,8 @@ export function scoreStrategies<T extends StrategyResult>(
     popNorm: popNorm[i],
     capEffNorm: capEffNorm[i],
     liqNorm: liqNorm[i],
-    score: wReward * rorNorm[i] + wRisk * popNorm[i] + 0.15 * capEffNorm[i] + 0.10 * liqNorm[i],
+    score: wReward * rorNorm[i] + wRisk * popNorm[i] + 0.15 * capEffNorm[i] + 0.10 * liqNorm[i] + 0.05 * widthNorm[i],
+    
   }));
   // Sort: highest score, then higher PoP, then lower capital
   scored.sort((a, b) =>

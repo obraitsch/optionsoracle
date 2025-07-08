@@ -19,6 +19,7 @@
     "@shadcn/ui": "^0.0.4",
     "@tanstack/react-query": "^5.81.2",
     "chart.js": "^4.5.0",
+    "chartjs-plugin-annotation": "^2.2.1",
     "chartjs-plugin-crosshair": "^2.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
