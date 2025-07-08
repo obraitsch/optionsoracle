@@ -1,9 +1,10 @@
 import { Alert, Typography } from '@mui/material';
 import React from 'react';
+import type { Quote } from '../../domain/types/UserInputs';
 
 interface ImpliedMoveBoxProps {
   impliedMove: number | null;
-  quote: any;
+  quote: Quote;
   atmVega: number | null;
   dte: number | null;
   targetPrice: string;

@@ -20,7 +20,17 @@ interface PayoffPoint {
   profit: number;
 }
 
-export default function PayoffChart({ strategy, quote, targetPrice }: any) {
+interface PayoffChartProps {
+  strategy: {
+    payoffPoints?: PayoffPoint[];
+    breakEven?: number;
+    requiredCapital?: number;
+  };
+  quote: { price: number };
+  targetPrice?: number;
+}
+
+export default function PayoffChart({ strategy, quote, targetPrice }: PayoffChartProps) {
   // Placeholder data if not present
   const payoffPoints: PayoffPoint[] = strategy?.payoffPoints || [
     { price: 170, profit: 0 },
@@ -87,8 +97,8 @@ export default function PayoffChart({ strategy, quote, targetPrice }: any) {
         pointRadius: 0,
         tension: 0.1,
         segment: {
-          backgroundColor: (ctx: any) => ctx.p0.parsed.y < 0 ? 'rgba(244,67,54,0.3)' : 'rgba(76,175,80,0.3)',
-          borderColor: (ctx: any) => ctx.p0.parsed.y < 0 ? '#f44336' : '#4caf50',
+          backgroundColor: (ctx: { p0: { parsed: { y: number } } }) => ctx.p0.parsed.y < 0 ? 'rgba(244,67,54,0.3)' : 'rgba(76,175,80,0.3)',
+          borderColor: (ctx: { p0: { parsed: { y: number } } }) => ctx.p0.parsed.y < 0 ? '#f44336' : '#4caf50',
         },
       },
       // Break-even vertical line

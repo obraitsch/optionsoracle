@@ -4,6 +4,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { CacheProvider } from '@emotion/react';
 import createEmotionCache from './createEmotionCache';
+import type { EmotionCache } from '@emotion/cache';
 
 const darkTheme = createTheme({
   palette: {
@@ -220,7 +221,7 @@ const darkTheme = createTheme({
 });
 
 // Accept a cache prop for SSR, or create a new one per request
-export default function ThemeRegistry({ children, cache }: { children: React.ReactNode, cache?: any }) {
+export default function ThemeRegistry({ children, cache }: { children: React.ReactNode, cache?: EmotionCache }) {
   const emotionCache = React.useMemo(() => cache || createEmotionCache(), [cache]);
   return (
     <CacheProvider value={emotionCache}>

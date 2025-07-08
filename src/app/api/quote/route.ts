@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
       currency: profile.currency || 'USD',
       name: profile.name || ticker,
     });
-  } catch (e) {
+  } catch {
     return NextResponse.json({ error: 'Not found' }, { status: 404 });
   }
 } 

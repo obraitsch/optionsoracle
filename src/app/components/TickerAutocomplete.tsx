@@ -2,7 +2,7 @@
 
 import { Box, TextField, Typography, CircularProgress, Paper, Chip } from '@mui/material';
 import { useState, useEffect, useContext } from 'react';
-import { fetchStockQuote } from '../../lib/api';
+import { fetchStockQuote } from '../../adapters/api/polygon';
 import { UserPreferencesContext } from '../page';
 
 export default function TickerAutocomplete() {

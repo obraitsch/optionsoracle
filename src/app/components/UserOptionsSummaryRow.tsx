@@ -1,10 +1,21 @@
 import React from 'react';
-import { Box, Typography, Alert } from '@mui/material';
+import { Box } from '@mui/material';
 import ImpliedMoveBox from './ImpliedMoveBox';
+
+interface Quote {
+  price: number;
+  [key: string]: unknown;
+}
+
+interface OptionContract {
+  type: string;
+  strike_price: number;
+  [key: string]: unknown;
+}
 
 interface UserOptionsSummaryRowProps {
   ticker: string;
-  quote: any;
+  quote: Quote;
   sentiment: string;
   riskReward: number;
   targetPrice: string;
@@ -12,9 +23,9 @@ interface UserOptionsSummaryRowProps {
   expiration: string;
   loading?: boolean;
   error?: string | null;
-  optionsData?: any;
+  optionsData?: { results?: OptionContract[] };
   impliedMove?: number | null;
-  impliedMoveQuote?: any;
+  impliedMoveQuote?: Quote;
   atmVega?: number | null;
   dte?: number | null;
   impliedMoveTargetPrice?: string;
@@ -39,7 +50,7 @@ const UserOptionsSummaryRow: React.FC<UserOptionsSummaryRowProps> = ({
   impliedMoveTargetPrice,
   isManualTarget,
 }) => {
-  const contracts = optionsData?.results || [];
+  const contracts: OptionContract[] = optionsData?.results || [];
   return (
     <Box sx={{ display: 'flex', flexDirection: 'row', gap: 2, mb: 3 }}>
       {/* Implied Move Box */}
@@ -70,10 +81,10 @@ const UserOptionsSummaryRow: React.FC<UserOptionsSummaryRowProps> = ({
         {optionsData && !loading && !error && (
           <>
             <div>Contracts: {contracts.length || 0}</div>
-            <div>Calls: {contracts.filter((c: any) => c.type === 'call').length}</div>
-            <div>Puts: {contracts.filter((c: any) => c.type === 'put').length}</div>
+            <div>Calls: {contracts.filter((c: OptionContract) => c.type === 'call').length}</div>
+            <div>Puts: {contracts.filter((c: OptionContract) => c.type === 'put').length}</div>
             <div>Sample Strike: {contracts[0]?.strike_price || '--'}</div>
-            <div>Price Range: ${Math.min(...contracts.map((c: any) => c.strike_price)).toFixed(2)} - ${Math.max(...contracts.map((c: any) => c.strike_price)).toFixed(2)}</div>
+            <div>Price Range: ${Math.min(...contracts.map((c: OptionContract) => c.strike_price)).toFixed(2)} - ${Math.max(...contracts.map((c: OptionContract) => c.strike_price)).toFixed(2)}</div>
           </>
         )}
       </Box>

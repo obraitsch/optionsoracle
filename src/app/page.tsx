@@ -10,14 +10,32 @@ import Alert from '@mui/material/Alert';
 import TickerAutocomplete from './components/TickerAutocomplete';
 import SentimentTargetForm from './components/SentimentTargetForm';
 import StrategyRecommendations from './components/StrategyRecommendations';
-import { fetchOptionsChain } from '../lib/api';
+import { fetchOptionsChain } from '../adapters/api/polygon';
+import type { Contract } from '../domain/types/Contract';
 
 // Define the context type
+interface Quote {
+  price: number;
+  [key: string]: unknown;
+}
+interface ImpliedMoveData {
+  impliedMove: number | null;
+  quote: Quote | null;
+  atmVega: number | null;
+  dte: number | null;
+  targetPrice: string;
+  isManualTarget: boolean;
+  [key: string]: unknown;
+}
+interface OptionsData {
+  results?: Contract[];
+  [key: string]: unknown;
+}
 interface UserPreferencesContextType {
   ticker: string;
   setTicker: Dispatch<SetStateAction<string>>;
-  quote: any;
-  setQuote: Dispatch<SetStateAction<any>>;
+  quote: Quote | null;
+  setQuote: Dispatch<SetStateAction<Quote | null>>;
   sentiment: string;
   setSentiment: Dispatch<SetStateAction<string>>;
   riskReward: number;
@@ -50,14 +68,21 @@ export const UserPreferencesContext = createContext<UserPreferencesContextType>(
 
 export default function Home() {
   const [ticker, setTicker] = useState('AAPL');
-  const [quote, setQuote] = useState<any>(null);
+  const [quote, setQuote] = useState<Quote | null>(null);
   const [sentiment, setSentiment] = useState('bullish');
   const [riskReward, setRiskReward] = useState(50);
   const [targetPrice, setTargetPrice] = useState('');
   const [budget, setBudget] = useState('');
   const [expiration, setExpiration] = useState('');
-  const [impliedMoveData, setImpliedMoveData] = useState<any>({});
-  const [optionsData, setOptionsData] = useState<any>(null);
+  const [impliedMoveData, setImpliedMoveData] = useState<ImpliedMoveData>({
+    impliedMove: null,
+    quote: null,
+    atmVega: null,
+    dte: null,
+    targetPrice: '',
+    isManualTarget: false
+  });
+  const [optionsData, setOptionsData] = useState<OptionsData | null>(null);
   const [optionsLoading, setOptionsLoading] = useState(false);
   const [optionsError, setOptionsError] = useState<string | null>(null);
 
@@ -442,9 +467,9 @@ export default function Home() {
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
                       {(() => {
                         const contracts = optionsData.results || [];
-                        const calls = contracts.filter((c: any) => c.type === 'call');
-                        const puts = contracts.filter((c: any) => c.type === 'put');
-                        const strikes = contracts.map((c: any) => c.strike_price);
+                        const calls = contracts.filter((c: Contract) => c.type === 'call');
+                        const puts = contracts.filter((c: Contract) => c.type === 'put');
+                        const strikes = contracts.map((c: Contract) => c.strike_price);
                         const minStrike = Math.min(...strikes);
                         const maxStrike = Math.max(...strikes);
                         

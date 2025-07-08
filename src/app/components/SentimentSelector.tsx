@@ -28,10 +28,9 @@ function getExpirationOptions(): ExpirationMonth[] {
   // Generate options: current month (all Fridays), next month (2 Fridays), others (1 Friday)
   const today = dayjs();
   const months: ExpirationMonth[] = [];
-  let monthCursor = today.startOf('month');
+  const monthCursor = today.startOf('month');
   for (let i = 0; i < 8; i++) {
     const month = monthCursor.add(i, 'month');
-    const year = month.year();
     const monthNum = month.month();
     let fridays: dayjs.Dayjs[] = [];
     let d = month.startOf('month');
@@ -117,7 +116,7 @@ export default function SentimentSelector() {
         maxWidth: '100vw',
         scrollbarWidth: 'thin',
       }}>
-        {expirationMonths.map((month, i) => (
+        {expirationMonths.map((month) => (
           <Box key={month.label} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 48 }}>
             <Button variant="text" disabled sx={{ color: '#ccc', fontWeight: 600, fontSize: 16, mb: 0.5, minWidth: 0, px: 1 }}>{month.label}</Button>
             <Box sx={{ display: 'flex', flexDirection: 'row', gap: 0.5 }}>

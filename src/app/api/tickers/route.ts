@@ -16,11 +16,18 @@ export async function GET(req: NextRequest) {
   const res = await fetch(url);
   const data = await res.json();
   // Map to { symbol, name, logo }
-  const results = (data.results || []).map((t: any) => ({
-    symbol: t.ticker,
-    name: t.name,
-    logo: t.branding?.logo_url || '',
-  }));
+  type TickerResult = { ticker: string; name: string; branding?: { logo_url?: string } };
+  const results = (data.results || []).map((t: unknown) => {
+    if (typeof t === 'object' && t !== null && 'ticker' in t && 'name' in t) {
+      const tickerObj = t as TickerResult;
+      return {
+        symbol: tickerObj.ticker,
+        name: tickerObj.name,
+        logo: tickerObj.branding?.logo_url || '',
+      };
+    }
+    return { symbol: '', name: '', logo: '' };
+  });
   return new Response(JSON.stringify({ results }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },

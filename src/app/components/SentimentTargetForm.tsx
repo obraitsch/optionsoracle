@@ -2,9 +2,10 @@
 import { ToggleButton, ToggleButtonGroup, Typography, Box, Slider, Button, TextField, Alert, Paper, Chip } from '@mui/material';
 import { useContext, useEffect, useState } from 'react';
 import { UserPreferencesContext } from '../page';
-import { calculateImpliedMove, calculateTargetPrice } from '../../utils/greeks';
-import { fetchOptionsChain } from '../../lib/api';
+import { calculateImpliedMove, calculateTargetPrice } from '../../domain/math/greeks';
+import { fetchOptionsChain } from '../../adapters/api/polygon';
 import dayjs from 'dayjs';
+import type { ImpliedMoveData } from '../../app/page';
 
 const sentiments = [
   { value: 'very_bearish', label: 'Very Bearish', icon: '⬇️', color: '#f44336' },
@@ -30,10 +31,9 @@ function getExpirationOptions(): ExpirationMonth[] {
   // Generate options: current month (all Fridays), next month (2 Fridays), others (1 Friday)
   const today = dayjs();
   const months: ExpirationMonth[] = [];
-  let monthCursor = today.startOf('month');
+  const monthCursor = today.startOf('month');
   for (let i = 0; i < 8; i++) {
     const month = monthCursor.add(i, 'month');
-    const year = month.year();
     const monthNum = month.month();
     let fridays: dayjs.Dayjs[] = [];
     let d = month.startOf('month');
@@ -64,15 +64,15 @@ function getExpirationOptions(): ExpirationMonth[] {
   return months;
 }
 
+interface OptionContract {
+  type: string;
+  strike_price: number;
+  iv?: number;
+  [key: string]: unknown;
+}
+
 interface SentimentTargetFormProps {
-  onImpliedMoveData?: (data: {
-    impliedMove: number | null;
-    quote: any;
-    atmVega: number | null;
-    dte: number | null;
-    targetPrice: string;
-    isManualTarget: boolean;
-  }) => void;
+  onImpliedMoveData?: (data: ImpliedMoveData) => void;
 }
 
 export default function SentimentTargetForm({ onImpliedMoveData }: SentimentTargetFormProps) {
@@ -90,7 +90,6 @@ export default function SentimentTargetForm({ onImpliedMoveData }: SentimentTarg
   const [isManualTarget, setIsManualTarget] = useState(false);
   const [impliedMove, setImpliedMove] = useState<number | null>(null);
   const [atmVega, setAtmVega] = useState<number | null>(null);
-  const [optionsData, setOptionsData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -103,7 +102,6 @@ export default function SentimentTargetForm({ onImpliedMoveData }: SentimentTarg
     setLoading(true);
     fetchOptionsChain(ticker, expiration)
       .then(data => {
-        setOptionsData(data);
         // Find ATM options to get implied volatility
         if (data.results && quote?.price) {
           const contracts = data.results;
@@ -111,12 +109,12 @@ export default function SentimentTargetForm({ onImpliedMoveData }: SentimentTarg
           
           // Find ATM call and put (closest to current price)
           const atmCall = contracts
-            .filter((c: any) => c.type === 'call')
-            .sort((a: any, b: any) => Math.abs(a.strike_price - currentPrice) - Math.abs(b.strike_price - currentPrice))[0];
+            .filter((c: OptionContract) => c.type === 'call')
+            .sort((a: OptionContract, b: OptionContract) => Math.abs(a.strike_price - currentPrice) - Math.abs(b.strike_price - currentPrice))[0];
           
           const atmPut = contracts
-            .filter((c: any) => c.type === 'put')
-            .sort((a: any, b: any) => Math.abs(a.strike_price - currentPrice) - Math.abs(b.strike_price - currentPrice))[0];
+            .filter((c: OptionContract) => c.type === 'put')
+            .sort((a: OptionContract, b: OptionContract) => Math.abs(a.strike_price - currentPrice) - Math.abs(b.strike_price - currentPrice))[0];
           
           // Use the average of ATM call and put IV, or whichever is available
           let avgIV = null;
@@ -181,7 +179,7 @@ export default function SentimentTargetForm({ onImpliedMoveData }: SentimentTarg
         isManualTarget
       });
     }
-  }, [quote?.price, atmVega, expiration, sentiment, isManualTarget]);
+  }, [quote?.price, atmVega, expiration, sentiment, isManualTarget, onImpliedMoveData, quote, setTargetPrice, targetPrice]);
 
   // Handle sentiment change
   const handleSentimentChange = (newSentiment: string) => {
@@ -251,14 +249,6 @@ export default function SentimentTargetForm({ onImpliedMoveData }: SentimentTarg
       }
     }
   };
-
-  // Calculate days to expiration
-  const getDTE = () => {
-    if (!expiration) return null;
-    return dayjs(expiration).diff(dayjs(), 'day');
-  };
-
-  const dte = getDTE();
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -544,7 +534,7 @@ export default function SentimentTargetForm({ onImpliedMoveData }: SentimentTarg
             minWidth: 'max-content',
             pb: 1,
           }}>
-            {expirationMonths.map((month, i) => (
+            {expirationMonths.map((month) => (
               <Box key={month.label} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 60 }}>
                 <Typography 
                   variant="body2" 

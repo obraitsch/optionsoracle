@@ -1,7 +1,7 @@
 /* =======================================================================
  *  probability.ts  –  analytic Probability-of-Profit helpers
  *  All functions return a value in [0 … 1].
- *  Pass r = 0 if you don’t include financing on the debit / credit.
+ *  Pass r = 0 if you don't include financing on the debit / credit.
  * ===================================================================== */
 
 const SQRT2PI = Math.sqrt(2 * Math.PI);
