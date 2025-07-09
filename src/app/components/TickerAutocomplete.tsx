@@ -5,6 +5,16 @@ import { useState, useEffect, useContext } from 'react';
 import { fetchStockQuote } from '../../adapters/api/polygon';
 import { UserPreferencesContext } from '../page';
 
+// Define a proper Quote interface
+interface Quote {
+  name?: string;
+  currency?: string;
+  price?: number;
+  change?: number;
+  changePercent?: number;
+  [key: string]: any;
+}
+
 export default function TickerAutocomplete() {
   const { ticker, setTicker, quote, setQuote } = useContext(UserPreferencesContext);
   const [loading, setLoading] = useState(false);
@@ -27,22 +37,25 @@ export default function TickerAutocomplete() {
       })
       .finally(() => setLoading(false));
   }, [ticker, mounted, setQuote]);
-
+//overall ticker top box
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      <Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, alignItems: 'center', width: '100%' }}>
+      <Box
+        sx={{ width: '100%', maxWidth: 500, mx: 'auto', textAlign: 'center' }}
+      >
         <Typography 
           variant="h6" 
           sx={{ 
             fontWeight: 600, 
             color: '#fff', 
             mb: 2,
-            fontSize: '1.1rem'
+            fontSize: '1.1rem',
+            textAlign: 'center'
           }}
         >
           Select Stock
         </Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap', justifyContent: 'center' }}>
           <TextField
             size="medium"
             variant="outlined"
@@ -50,7 +63,7 @@ export default function TickerAutocomplete() {
             onChange={e => setTicker(e.target.value.toUpperCase())}
             placeholder="e.g. AAPL"
             sx={{ 
-              width: { xs: '100%', sm: 200 },
+              width: { xs: '100%', sm: 100 },
               '& .MuiOutlinedInput-root': {
                 background: 'rgba(255, 255, 255, 0.08)',
                 borderRadius: 2,
@@ -64,7 +77,7 @@ export default function TickerAutocomplete() {
                 },
                 '& input': {
                   color: '#fff',
-                  fontSize: '1.1rem',
+                  fontSize: '1rem',
                   fontWeight: 600,
                   textAlign: 'center',
                 },
@@ -112,7 +125,7 @@ export default function TickerAutocomplete() {
                     }}
                   />
                 )}
-                {quote && !loading && !error && (
+                {quote && typeof quote === 'object' && (
                   <Paper 
                     elevation={0}
                     sx={{ 
@@ -128,16 +141,16 @@ export default function TickerAutocomplete() {
                       flexWrap: 'wrap'
                     }}
                   >
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, }}> 
                       <Typography 
                         variant="h6" 
                         sx={{ 
                           fontWeight: 700, 
                           color: '#fff',
-                          fontSize: '1.2rem'
+                          fontSize: '1.1rem' //Stock Ticker 
                         }}
                       >
-                        {quote.name}
+                        {typeof quote.name === 'string' ? quote.name : ''}
                       </Typography>
                       <Typography 
                         variant="body2" 
@@ -146,7 +159,7 @@ export default function TickerAutocomplete() {
                           fontWeight: 500
                         }}
                       >
-                        {quote.currency}
+                        {typeof quote.currency === 'string' ? quote.currency : ''}
                       </Typography>
                     </Box>
                     
@@ -156,10 +169,10 @@ export default function TickerAutocomplete() {
                         sx={{ 
                           fontWeight: 800, 
                           color: '#fff',
-                          fontSize: '2rem'
+                          fontSize: '1.5rem' //Stock Price Font Size
                         }}
                       >
-                        ${quote.price?.toFixed(2)}
+                        {typeof quote.price === 'number' ? `$${quote.price.toFixed(2)}` : ''}
                       </Typography>
                     </Box>
                     
@@ -169,22 +182,22 @@ export default function TickerAutocomplete() {
                         component="span"
                         sx={{
                           fontWeight: 700,
-                          color: quote.change > 0 ? '#4caf50' : quote.change < 0 ? '#f44336' : 'rgba(255, 255, 255, 0.6)',
-                          fontSize: '1.1rem',
+                          color: typeof quote.change === 'number' ? (quote.change > 0 ? '#4caf50' : quote.change < 0 ? '#f44336' : 'rgba(255, 255, 255, 0.6)') : 'rgba(255, 255, 255, 0.6)',
+                          fontSize: '0.95rem', //$ Dollar Change Font Size
                         }}
                       >
-                        {quote.change > 0 ? '+' : ''}{quote.change?.toFixed(2)}
+                        {typeof quote.change === 'number' ? `${quote.change > 0 ? '+' : ''}${quote.change.toFixed(2)}` : ''}
                       </Typography>
                       <Typography
                         variant="body2"
                         component="span"
                         sx={{
                           fontWeight: 600,
-                          color: quote.change > 0 ? '#4caf50' : quote.change < 0 ? '#f44336' : 'rgba(255, 255, 255, 0.6)',
-                          fontSize: '0.9rem',
+                          color: typeof quote.change === 'number' ? (quote.change > 0 ? '#4caf50' : quote.change < 0 ? '#f44336' : 'rgba(255, 255, 255, 0.6)') : 'rgba(255, 255, 255, 0.6)',
+                          fontSize: '0.85rem',  //% Change Font Size
                         }}
                       >
-                        ({quote.changePercent > 0 ? '+' : ''}{quote.changePercent?.toFixed(2)}%)
+                        {typeof quote.changePercent === 'number' ? `(${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%)` : ''}
                       </Typography>
                     </Box>
                   </Paper>

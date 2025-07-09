@@ -124,9 +124,9 @@ export default function Home() {
           }
         }}
       >
-        <Container maxWidth="md" sx={{ position: 'relative', zIndex: 1 }}>
+        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
           {/* Header */}
-          <Box sx={{ pt: 2, pb: 1.5, textAlign: 'center' }}>
+          <Box sx={{ pt: 5, pb: 1.5, textAlign: 'center' }}>
             <Typography 
               variant="h4" 
               sx={{ 
@@ -154,7 +154,7 @@ export default function Home() {
           </Box>
 
           {/* Main Content */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, pb: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pb: 2}}>
             {/* Input Section */}
             <Paper 
               elevation={0}
@@ -163,7 +163,7 @@ export default function Home() {
                 backdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
                 borderRadius: 1.5,
-                p: 2,
+                p: 0.5, // smaller padding
                 boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
               }}
             >
@@ -171,20 +171,28 @@ export default function Home() {
                 variant="h6" 
                 sx={{ 
                   fontWeight: 700, 
-                  mb: 1.5, 
+                  mb: 1, // less margin below
                   color: '#fff',
                   textAlign: 'center',
-                  fontSize: { xs: '1.1rem', md: '1.3rem' }
+                  fontSize: { xs: '1rem', md: '1.2rem' } // smaller font
                 }}
               >
                 Configure Your Strategy
           </Typography>
               
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TickerAutocomplete />
-            <SentimentTargetForm onImpliedMoveData={setImpliedMoveData} />
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                <TickerAutocomplete />
+                <SentimentTargetForm onImpliedMoveData={setImpliedMoveData} />
               </Box>
             </Paper>
+
+            {/* Recommendations Section */}
+            <StrategyRecommendations
+              optionsData={optionsData}
+              loading={optionsLoading}
+              error={optionsError}
+              impliedMoveData={impliedMoveData}
+            />
 
             {/* Summary Section */}
             <Grid container spacing={1}>
@@ -343,7 +351,8 @@ export default function Home() {
                       <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontSize: '0.65rem' }}>
                         Ticker
                       </Typography>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#fff', fontSize: '0.7rem' }}>
+                      <Typography variant="body2" 
+                      sx={{ fontWeight: 600, color: '#fff', fontSize: '0.7rem' }}>
                         {ticker}
                       </Typography>
                     </Box>
@@ -533,14 +542,6 @@ export default function Home() {
                 </Paper>
               </Grid>
             </Grid>
-
-            {/* Recommendations Section */}
-            <StrategyRecommendations
-              optionsData={optionsData}
-              loading={optionsLoading}
-              error={optionsError}
-              impliedMoveData={impliedMoveData}
-            />
           </Box>
         </Container>
       </Box>

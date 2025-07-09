@@ -5,7 +5,16 @@ import { UserPreferencesContext } from '../page';
 import { calculateImpliedMove, calculateTargetPrice } from '../../domain/math/greeks';
 import { fetchOptionsChain } from '../../adapters/api/polygon';
 import dayjs from 'dayjs';
-import type { ImpliedMoveData } from '../../app/page';
+// Define ImpliedMoveData interface locally since it is not exported from page.tsx
+interface ImpliedMoveData {
+  impliedMove: number | null;
+  quote: any;
+  atmVega: number | null;
+  dte: number | null;
+  targetPrice: string;
+  isManualTarget: boolean;
+  [key: string]: unknown;
+}
 
 const sentiments = [
   { value: 'very_bearish', label: 'Very Bearish', icon: '⬇️', color: '#f44336' },
@@ -251,61 +260,164 @@ export default function SentimentTargetForm({ onImpliedMoveData }: SentimentTarg
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {/* Sentiment Selection */}
-      <Box>
-        <Typography 
-          variant="h6" 
-          sx={{ 
-            fontWeight: 600, 
-            color: '#fff', 
-            mb: 3,
-            fontSize: '1.1rem'
-          }}
-        >
-          Market Sentiment
-        </Typography>
-        <ToggleButtonGroup
-          value={sentiment}
-          exclusive
-          onChange={(_, val) => val && handleSentimentChange(val)}
-          color="primary"
-          fullWidth
-          sx={{
-            '& .MuiToggleButton-root': {
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              color: 'rgba(255, 255, 255, 0.7)',
-              borderRadius: 2,
-              py: 2,
-              px: 1,
-              fontWeight: 600,
-              fontSize: '0.9rem',
-              textTransform: 'none',
-              '&:hover': {
-                background: 'rgba(255, 255, 255, 0.12)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-              },
-              '&.Mui-selected': {
-                background: 'rgba(25, 118, 210, 0.2)',
-                border: '1px solid #1976d2',
-                color: '#fff',
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+      {/* Row: Market Sentiment | Strategy Parameters */}
+      <Typography
+        variant="h6"
+        sx={{
+          fontWeight: 700,
+          color: '#fff',
+          fontSize: '1.15rem',
+          mt: 2.5,
+          mb: 2,
+          textAlign: 'center',
+          width: '100%',
+        }}
+      >
+        Market Sentiment & Strategy Parameters
+      </Typography>
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          gap: 4,
+          alignItems: 'flex-start',
+          justifyContent: 'center',
+          width: '100%',
+          maxWidth: 900,
+          mx: 'auto',
+        }}
+      >
+        {/* Market Sentiment (left) */}
+        <Box sx={{ width: 420, minWidth: 0, maxWidth: 420 }}>
+          <ToggleButtonGroup
+            value={sentiment}
+            exclusive
+            onChange={(_, val) => val && handleSentimentChange(val)}
+            color="primary"
+            fullWidth
+            sx={{
+              '& .MuiToggleButton-root': {
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                color: 'rgba(255, 255, 255, 0.7)',
+                borderRadius: 2,
+                py: 0.5, // reduced vertical padding
+                px: 0.5, // reduced horizontal padding
+                fontWeight: 600,
+                fontSize: '0.8rem', // smaller font
+                textTransform: 'none',
+                minHeight: 32, // smaller min height
+                minWidth: 36, // smaller min width
                 '&:hover': {
-                  background: 'rgba(25, 118, 210, 0.25)',
+                  background: 'rgba(255, 255, 255, 0.12)',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
+                },
+                '&.Mui-selected': {
+                  background: 'rgba(25, 118, 210, 0.2)',
+                  border: '1px solid #1976d2',
+                  color: '#fff',
+                  '&:hover': {
+                    background: 'rgba(25, 118, 210, 0.25)',
+                  }
                 }
               }
-            }
-          }}
-        >
-          {sentiments.map((s) => (
-            <ToggleButton key={s.value} value={s.value} sx={{ flex: 1 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                <span style={{ fontSize: 24 }}>{s.icon}</span>
-                <span>{s.label}</span>
-              </Box>
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+            }}
+          >
+            {sentiments.map((s) => (
+              <ToggleButton key={s.value} value={s.value} sx={{ flex: 1, minWidth: 0, px: 0.5 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.25 }}>
+                  <span style={{ fontSize: 16 }}>{s.icon}</span> {/* smaller icon */}
+                  <span style={{ fontSize: '0.8rem' }}>{s.label}</span> {/* smaller label */}
+                </Box>
+              </ToggleButton>
+            ))}
+          </ToggleButtonGroup>
+        </Box>
+
+        {/* Strategy Parameters (right) */}
+        <Box sx={{ width: 420, minWidth: 0, maxWidth: 420 }}>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 120 }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 500, fontSize: '0.8rem', mb: 0.5 }}>
+                Target Price
+              </Typography>
+              <TextField
+                size="small"
+                variant="outlined"
+                type="number"
+                value={targetPrice}
+                onChange={e => handleTargetPriceChange(e.target.value)}
+                placeholder="e.g. 207.80"
+                sx={{ 
+                  '& .MuiOutlinedInput-root': {
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    borderRadius: 2,
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    height: 32, // compact height
+                    fontSize: '0.8rem', // smaller font
+                    '&:hover': {
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
+                    },
+                    '&.Mui-focused': {
+                      border: '1px solid #1976d2',
+                      boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.2)',
+                    },
+                    '& input': {
+                      color: '#fff',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      padding: '6px 8px', // compact padding
+                    },
+                    '& fieldset': {
+                      border: 'none',
+                    }
+                  }
+                }}
+                inputProps={{ min: 0 }}
+              />
+            </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, minWidth: 120 }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 500, fontSize: '0.8rem', mb: 0.5 }}>
+                Budget
+              </Typography>
+              <TextField
+                size="small"
+                variant="outlined"
+                type="number"
+                value={budget}
+                onChange={e => setBudget(e.target.value)}
+                placeholder="e.g. 500"
+                sx={{ 
+                  '& .MuiOutlinedInput-root': {
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    borderRadius: 2,
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    height: 32, // compact height
+                    fontSize: '0.8rem', // smaller font
+                    '&:hover': {
+                      border: '1px solid rgba(255, 255, 255, 0.3)',
+                    },
+                    '&.Mui-focused': {
+                      border: '1px solid #1976d2',
+                      boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.2)',
+                    },
+                    '& input': {
+                      color: '#fff',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      padding: '6px 8px', // compact padding
+                    },
+                    '& fieldset': {
+                      border: 'none',
+                    }
+                  }
+                }}
+                inputProps={{ min: 0 }}
+              />
+            </Box>
+          </Box>
+        </Box>
       </Box>
 
       {/* Loading indicator */}
@@ -328,110 +440,109 @@ export default function SentimentTargetForm({ onImpliedMoveData }: SentimentTarg
         </Alert>
       )}
 
-      {/* Target Price and Budget */}
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <Typography 
-          variant="h6" 
-          sx={{ 
-            fontWeight: 600, 
-            color: '#fff',
-            fontSize: '1.1rem'
-          }}
-        >
-          Strategy Parameters
-        </Typography>
-        
-        <Box sx={{ 
-          display: 'flex', 
-          gap: 3, 
-          alignItems: 'flex-end', 
-          flexWrap: 'wrap'
-        }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 150 }}>
-            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 500 }}>
-              Target Price
-            </Typography>
-            <TextField
-              size="medium"
-              variant="outlined"
-              type="number"
-              value={targetPrice}
-              onChange={e => handleTargetPriceChange(e.target.value)}
-              placeholder="e.g. 207.80"
-              sx={{ 
-                '& .MuiOutlinedInput-root': {
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  borderRadius: 2,
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  '&:hover': {
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                  },
-                  '&.Mui-focused': {
-                    border: '1px solid #1976d2',
-                    boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.2)',
-                  },
-                  '& input': {
-                    color: '#fff',
-                    fontSize: '1rem',
-                    fontWeight: 600,
-                  },
-                  '& fieldset': {
-                    border: 'none',
-                  }
-                }
-              }}
-              inputProps={{ min: 0 }}
-            />
-          </Box>
-          
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 150 }}>
-            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 500 }}>
-              Budget
-            </Typography>
-            <TextField
-              size="medium"
-              variant="outlined"
-              type="number"
-              value={budget}
-              onChange={e => setBudget(e.target.value)}
-              placeholder="e.g. 1000"
-              sx={{ 
-                '& .MuiOutlinedInput-root': {
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  borderRadius: 2,
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  '&:hover': {
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                  },
-                  '&.Mui-focused': {
-                    border: '1px solid #1976d2',
-                    boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.2)',
-                  },
-                  '& input': {
-                    color: '#fff',
-                    fontSize: '1rem',
-                    fontWeight: 600,
-                  },
-                  '& fieldset': {
-                    border: 'none',
-                  }
-                }
-              }}
-              inputProps={{ min: 0 }}
-            />
-          </Box>
-        </Box>
-      </Box>
-
-      {/* Risk vs Reward Slider */}
-      <Box>
+      {/* Expiration Selection */}
+      <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 0.5 }}>
         <Typography 
           variant="h6" 
           sx={{ 
             fontWeight: 600, 
             color: '#fff', 
             mb: 2,
-            fontSize: '1.1rem'
+            fontSize: '1.05rem',
+            textAlign: 'center'
+          }}
+        >
+          Expiration Date
+        </Typography>
+        <Paper 
+          elevation={0}
+          sx={{ 
+            background: 'rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: 3,
+            p: 2,
+            overflowX: 'auto',
+            minWidth: 0,
+            maxWidth: 600,
+            mx: 'auto',
+            boxShadow: 'none',
+          }}
+        >
+          <Box sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'flex-end',
+            gap: 1.5,
+            minWidth: 0,
+            pb: 1,
+          }}>
+            {expirationMonths.map((month) => (
+              <Box key={month.label} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 40 }}>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    color: 'rgba(255, 255, 255, 0.6)', 
+                    fontWeight: 600, 
+                    mb: 0.5,
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  {month.label}
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'row', gap: 0.25 }}>
+                  {month.dates.map((date: ExpirationDate) => (
+                    <Button
+                      key={date.label}
+                      variant={expiration === date.value ? 'contained' : 'outlined'}
+                      color={date.disabled ? 'inherit' : 'primary'}
+                      disabled={date.disabled}
+                      onClick={() => !date.disabled && setExpiration(date.value)}
+                      sx={{ 
+                        minWidth: 28,
+                        px: 0.5,
+                        py: 0.5,
+                        fontWeight: 600,
+                        fontSize: '0.8rem',
+                        opacity: date.disabled ? 0.3 : 1,
+                        background: expiration === date.value
+                          ? 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)'
+                          : 'rgba(255, 255, 255, 0.08)',
+                        color: expiration === date.value ? '#fff' : 'rgba(255, 255, 255, 0.8)',
+                        borderRadius: 2,
+                        border: expiration === date.value
+                          ? 'none'
+                          : '1px solid rgba(255, 255, 255, 0.2)',
+                        boxShadow: 'none',
+                        '&:hover': {
+                          background: expiration === date.value
+                            ? 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)'
+                            : 'rgba(255, 255, 255, 0.12)',
+                          transform: 'translateY(-1px)',
+                        },
+                        transition: 'all 0.2s ease-in-out',
+                      }}
+                    >
+                      {date.label}
+                    </Button>
+                  ))}
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Paper>
+      </Box>
+
+      {/* Risk vs Reward Slider */}
+      <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', mt: 2 }}>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            fontWeight: 600, 
+            color: '#fff', 
+            mb: 2,
+            fontSize: '1.05rem',
+            textAlign: 'center'
           }}
         >
           Risk vs Reward Balance
@@ -443,14 +554,20 @@ export default function SentimentTargetForm({ onImpliedMoveData }: SentimentTarg
             backdropFilter: 'blur(10px)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
             borderRadius: 3,
-            p: 3
+            p: 1,
+            minWidth: 0,
+            width: '100%',
+            maxWidth: 920,
+            mx: 'auto',
+            boxShadow: 'none',
+            px: 1,
           }}
         >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, px: 0.5 }}>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 500, fontSize: '0.95rem' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, minWidth: 0 }}>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 500, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
               Max Chance
             </Typography>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 500, fontSize: '0.95rem' }}>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', fontWeight: 500, fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
               Max Return
             </Typography>
           </Box>
@@ -461,17 +578,27 @@ export default function SentimentTargetForm({ onImpliedMoveData }: SentimentTarg
             max={100}
             step={10}
             marks={[
-              { value: 50, label: 'Balanced' },
+              { value: 0 }, { value: 10 }, { value: 20 }, 
+              { value: 30 }, { value: 40 }, { value: 50, label: 'Balanced' }, 
+              { value: 60 }, { value: 70 }, { value: 80}, 
+              { value: 90 }, { value: 100 }
             ]}
             valueLabelDisplay="auto"
             sx={{ 
               color: '#1976d2',
               '& .MuiSlider-mark': {
-                backgroundColor: 'rgba(255, 255, 255, 0.3)',
+                backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                width: 6,
+                height: 12,
+                borderRadius: 2,
+                marginLeft: '-3px',
+                marginTop: '0px',
               },
               '& .MuiSlider-markLabel': {
-                color: 'rgba(255, 255, 255, 0.7)',
-                fontWeight: 500,
+                color: 'rgba(255, 255, 255, 0.9)',
+                fontWeight: 700,
+                fontSize: '1rem',
+                marginTop: '8px',
               },
               '& .MuiSlider-valueLabel': {
                 background: '#1976d2',
@@ -498,99 +625,6 @@ export default function SentimentTargetForm({ onImpliedMoveData }: SentimentTarg
                 fontWeight: 600
               }}
             />
-          </Box>
-        </Paper>
-      </Box>
-
-      {/* Expiration Selection */}
-      <Box>
-        <Typography 
-          variant="h6" 
-          sx={{ 
-            fontWeight: 600, 
-            color: '#fff', 
-            mb: 3,
-            fontSize: '1.1rem'
-          }}
-        >
-          Expiration Date
-        </Typography>
-        <Paper 
-          elevation={0}
-          sx={{ 
-            background: 'rgba(255, 255, 255, 0.05)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: 3,
-            p: 3,
-            overflowX: 'auto'
-          }}
-        >
-          <Box sx={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'flex-end',
-            gap: 2,
-            minWidth: 'max-content',
-            pb: 1,
-          }}>
-            {expirationMonths.map((month) => (
-              <Box key={month.label} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 60 }}>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    color: 'rgba(255, 255, 255, 0.6)', 
-                    fontWeight: 600, 
-                    mb: 1,
-                    fontSize: '0.9rem'
-                  }}
-                >
-                  {month.label}
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'row', gap: 0.5 }}>
-                  {month.dates.map((date: ExpirationDate) => (
-                    <Button
-                      key={date.label}
-                      variant={expiration === date.value ? 'contained' : 'outlined'}
-                      color={date.disabled ? 'inherit' : 'primary'}
-                      disabled={date.disabled}
-                      onClick={() => !date.disabled && setExpiration(date.value)}
-                      sx={{ 
-                        minWidth: 36, 
-                        px: 0, 
-                        py: 1, 
-                        fontWeight: 700, 
-                        fontSize: '0.9rem', 
-                        opacity: date.disabled ? 0.3 : 1, 
-                        background: expiration === date.value 
-                          ? 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)' 
-                          : 'rgba(255, 255, 255, 0.08)',
-                        color: expiration === date.value ? '#fff' : 'rgba(255, 255, 255, 0.8)', 
-                        borderRadius: 2, 
-                        border: expiration === date.value 
-                          ? 'none' 
-                          : '1px solid rgba(255, 255, 255, 0.2)',
-                        boxShadow: expiration === date.value 
-                          ? '0 4px 12px rgba(25, 118, 210, 0.3)' 
-                          : 'none',
-                        '&:hover': { 
-                          background: expiration === date.value 
-                            ? 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)'
-                            : 'rgba(255, 255, 255, 0.12)',
-                          transform: 'translateY(-1px)',
-                          boxShadow: expiration === date.value 
-                            ? '0 6px 16px rgba(25, 118, 210, 0.4)'
-                            : '0 2px 8px rgba(0, 0, 0, 0.2)',
-                        },
-                        transition: 'all 0.2s ease-in-out'
-                      }}
-                    >
-                      {date.label}
-                    </Button>
-                  ))}
-                </Box>
-              </Box>
-            ))}
           </Box>
         </Paper>
       </Box>
